@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <video controls autoplay></video>
+
+  <script>
+    const video = document.querySelector('video');
+    const videoMediaSource = new MediaSource();
+    videoMediaSource.addEventListener('sourceopen', handleSourceOpen, false);
+    videoMediaSource.addEventListener('sourceclose', handleSourceClose, false);
+    video.src = URL.createObjectURL(videoMediaSource);
+    video.addEventListener('canplay', handleCanPlay, false);
+
+    const maxBytes = 206372848;
+    const chunkSize = 2048000;
+    const chunks = Math.ceil(maxBytes / chunkSize);
+    let currentChunk = 0;
+
+    function handleSourceClose (event) {
+      console.log('sourceclose');
+    }
+
+    function handleSourceOpen(event) {
+      const ms = this;
+      console.log('handleSourceOpen');
+      console.log('readyState:' + ms.readyState);
+      const sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+      console.log('Source buffer: ', sourceBuffer);
+      
+      sourceBuffer.addEventListener('updateend', function (event) {
+        console.log('updateend');
+        currentChunk++;
+        if (currentChunk < chunks) {
+          fetchChunk(sourceBuffer);
+        } else {
+          console.log('Done:', chunks);
+          videoMediaSource.endOfStream();
+        }
+      })
+      
+      fetchChunk(sourceBuffer)
+    }
+
+    function handleCanPlay (event) {
+      console.log('canplay');
+      video.play();
+    }
+    function fetchChunk(sb) {
+      var xhr = new XMLHttpRequest();
+      // xhr.open('GET', 'https://oss-xg.xhyunyi.com:20080/at-token/mp4/XToOwR7HUU75F6Tz.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20220429T012316Z&X-Amz-SignedHeaders=host&X-Amz-Expires=50399&X-Amz-Credential=minio%2F20220429%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=2a400cc34ebc8b82b0bff4fe8dcc7c4571620f0a12580768253360f1ff8d8595');
+      // xhr.open('GET', 'https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd');
+      xhr.open('GET', 'https://nickdesaulniers.github.io/netfix/demo/frag_bunny.mp4');
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = function () {
+        sb.appendBuffer(new Uint8Array(xhr.response));
+      };
+      xhr.setRequestHeader('Range', `bytes=${currentChunk * chunkSize}-${(currentChunk + 1) * chunkSize - 1}`);
+      xhr.send(null);
+    }
+  </script>
+</body>
+</html>
